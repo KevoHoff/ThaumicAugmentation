@@ -64,6 +64,7 @@ import thecodex6824.thaumicaugmentation.api.block.property.ITAStoneType.StoneTyp
 import thecodex6824.thaumicaugmentation.common.block.BlockArcaneDoor;
 import thecodex6824.thaumicaugmentation.common.block.BlockArcaneTerraformer;
 import thecodex6824.thaumicaugmentation.common.block.BlockArcaneTrapdoor;
+import thecodex6824.thaumicaugmentation.common.block.BlockAugmentationStation;
 import thecodex6824.thaumicaugmentation.common.block.BlockCapstone;
 import thecodex6824.thaumicaugmentation.common.block.BlockCastedLight;
 import thecodex6824.thaumicaugmentation.common.block.BlockCrabVent;
@@ -285,6 +286,7 @@ public final class RegistryHandler {
         registry.register(setupBlock(new BlockItemGrate(), "item_grate"));
         registry.register(setupBlock(new BlockGlassTube(), "glass_tube"));
         registry.register(setupBlock(new BlockImpetusCreative(), "impetus_creative"));
+        registry.register(setupBlock(new BlockAugmentationStation(), "augmentation_station"));
         
         GameRegistry.registerTileEntity(TileVisRegenerator.class, new ResourceLocation(ThaumicAugmentationAPI.MODID, "vis_regenerator"));
         GameRegistry.registerTileEntity(TileWardedChest.class, new ResourceLocation(ThaumicAugmentationAPI.MODID, "warded_chest"));
