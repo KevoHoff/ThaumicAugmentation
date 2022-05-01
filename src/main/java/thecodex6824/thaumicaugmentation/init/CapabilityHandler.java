@@ -52,9 +52,12 @@ import thaumcraft.common.entities.EntityFluxRift;
 import thecodex6824.thaumicaugmentation.api.TAConfig;
 import thecodex6824.thaumicaugmentation.api.ThaumicAugmentationAPI;
 import thecodex6824.thaumicaugmentation.api.augment.Augment;
+import thecodex6824.thaumicaugmentation.api.augment.AugmentConfigurationStorage;
 import thecodex6824.thaumicaugmentation.api.augment.AugmentableItem;
 import thecodex6824.thaumicaugmentation.api.augment.CapabilityAugment;
+import thecodex6824.thaumicaugmentation.api.augment.CapabilityAugmentConfigurationStorage;
 import thecodex6824.thaumicaugmentation.api.augment.IAugment;
+import thecodex6824.thaumicaugmentation.api.augment.IAugmentConfigurationStorage;
 import thecodex6824.thaumicaugmentation.api.augment.IAugmentableItem;
 import thecodex6824.thaumicaugmentation.api.augment.builder.IElytraHarnessAugment;
 import thecodex6824.thaumicaugmentation.api.entity.CapabilityPortalState;
@@ -139,6 +142,27 @@ public final class CapabilityHandler {
             }
             
         }, () -> new AugmentableItem(3));
+        
+        CapabilityManager.INSTANCE.register(IAugmentConfigurationStorage.class, new IStorage<IAugmentConfigurationStorage>() {
+            
+            @Override
+            public void readNBT(Capability<IAugmentConfigurationStorage> capability, IAugmentConfigurationStorage instance, EnumFacing side, NBTBase nbt) {
+                if (!(instance instanceof AugmentConfigurationStorage) || !(nbt instanceof NBTTagCompound))
+                    throw new UnsupportedOperationException("Can't deserialize non-API implementation");
+                
+                ((AugmentConfigurationStorage) instance).deserializeNBT((NBTTagCompound) nbt);
+            }
+            
+            @Override
+            @Nullable
+            public NBTBase writeNBT(Capability<IAugmentConfigurationStorage> capability, IAugmentConfigurationStorage instance, EnumFacing side) {
+                if (!(instance instanceof AugmentConfigurationStorage))
+                    throw new UnsupportedOperationException("Can't serialize non-API implementation");
+                
+                return ((AugmentConfigurationStorage) instance).serializeNBT();
+            }
+            
+        }, () -> new AugmentConfigurationStorage());
         
         CapabilityManager.INSTANCE.register(IImpetusStorage.class, new IStorage<IImpetusStorage>() {
             
@@ -462,6 +486,10 @@ public final class CapabilityHandler {
         if (event.getObject() instanceof EntityFluxRift) {
             event.addCapability(new ResourceLocation(ThaumicAugmentationAPI.MODID, "rift_energy_storage"), new SimpleCapabilityProvider<>(
                     new FluxRiftImpetusStorage((EntityFluxRift) event.getObject()), CapabilityImpetusStorage.IMPETUS_STORAGE));
+        }
+        else if (event.getObject() instanceof EntityPlayer) {
+            event.addCapability(new ResourceLocation(ThaumicAugmentationAPI.MODID, "augment_configuration_storage"), new SimpleCapabilityProvider<>(
+                    new AugmentConfigurationStorage(), CapabilityAugmentConfigurationStorage.AUGMENT_CONFIGURATION_STORAGE));
         }
         
         event.addCapability(new ResourceLocation(ThaumicAugmentationAPI.MODID, "portal_state"), new SimpleCapabilityProvider<>(
