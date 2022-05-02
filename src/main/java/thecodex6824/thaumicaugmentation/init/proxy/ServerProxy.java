@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -38,7 +39,9 @@ import com.google.common.collect.ImmutableMap;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.init.SoundEvents;
 import net.minecraft.inventory.Container;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.play.server.SPacketEntityVelocity;
@@ -58,7 +61,15 @@ import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 import thaumcraft.api.golems.seals.ISealEntity;
 import thaumcraft.common.golems.client.gui.SealBaseContainer;
+import thaumcraft.common.lib.SoundsTC;
 import thecodex6824.thaumicaugmentation.ThaumicAugmentation;
+import thecodex6824.thaumicaugmentation.api.augment.AugmentAPI;
+import thecodex6824.thaumicaugmentation.api.augment.AugmentConfiguration;
+import thecodex6824.thaumicaugmentation.api.augment.AugmentConfigurationApplyResult;
+import thecodex6824.thaumicaugmentation.api.augment.CapabilityAugmentConfigurationStorage;
+import thecodex6824.thaumicaugmentation.api.augment.CapabilityAugmentableItem;
+import thecodex6824.thaumicaugmentation.api.augment.IAugmentConfigurationStorage;
+import thecodex6824.thaumicaugmentation.api.augment.IAugmentableItem;
 import thecodex6824.thaumicaugmentation.api.impetus.node.IImpetusNode;
 import thecodex6824.thaumicaugmentation.api.ward.storage.IWardStorage;
 import thecodex6824.thaumicaugmentation.api.ward.storage.WardStorageServer;
@@ -70,6 +81,7 @@ import thecodex6824.thaumicaugmentation.common.container.ContainerWardedChest;
 import thecodex6824.thaumicaugmentation.common.entity.EntityAutocaster;
 import thecodex6824.thaumicaugmentation.common.entity.EntityCelestialObserver;
 import thecodex6824.thaumicaugmentation.common.event.PlayerEventHandler;
+import thecodex6824.thaumicaugmentation.common.network.PacketApplyAugmentConfiguration;
 import thecodex6824.thaumicaugmentation.common.network.PacketBoostState;
 import thecodex6824.thaumicaugmentation.common.network.PacketElytraBoost;
 import thecodex6824.thaumicaugmentation.common.network.PacketInteractGUI;
@@ -134,6 +146,14 @@ public class ServerProxy implements ISidedProxy {
     public boolean isElytraBoostKeyDown() {
         return false;
     }
+    
+    @Override
+    public boolean isAugmentRadialKeyDown() {
+        return false;
+    }
+    
+    @Override
+    public void setAugmentRadialKeyDown(boolean state) {}
     
     @Override
     public boolean isPvPEnabled() {
@@ -257,6 +277,8 @@ public class ServerProxy implements ISidedProxy {
             handleElytraBoostPacket((PacketElytraBoost) message, context);
         else if (message instanceof PacketInteractGUI)
             handleInteractGUIPacket((PacketInteractGUI) message, context);
+        else if (message instanceof PacketApplyAugmentConfiguration)
+            handleAugmentConfigPacket((PacketApplyAugmentConfiguration) message, context);
         else {
             ThaumicAugmentation.getLogger().warn("An unknown packet was received and will be dropped: " + message.getClass().toString());
             if (!isSingleplayer()) {
@@ -419,6 +441,37 @@ public class ServerProxy implements ISidedProxy {
         else if (!isSingleplayer()) {
             ThaumicAugmentation.getLogger().info("Player {} ({}) kicked for protocol violation: invalid container", sender.getName(), sender.getGameProfile().getId());
             context.getServerHandler().disconnect(new TextComponentTranslation("thaumicaugmentation.text.network_kick"));
+        }
+    }
+    
+    protected void handleAugmentConfigPacket(PacketApplyAugmentConfiguration message, MessageContext context) {
+        EntityPlayerMP sender = context.getServerHandler().player;
+        if (sender != null && message.getConfigIndex() >= 0) {
+            ItemStack augmentable = sender.getHeldItemMainhand();
+            if (!augmentable.hasCapability(CapabilityAugmentableItem.AUGMENTABLE_ITEM, null))
+                augmentable = sender.getHeldItemOffhand();
+            
+            IAugmentableItem item = augmentable.getCapability(CapabilityAugmentableItem.AUGMENTABLE_ITEM, null);
+            if (item != null) {
+                IAugmentConfigurationStorage storage = sender.getCapability(CapabilityAugmentConfigurationStorage.AUGMENT_CONFIGURATION_STORAGE, null);
+                if (storage != null) {
+                    List<AugmentConfiguration> configs = storage.getAllConfigurationsForItem(augmentable);
+                    if (configs.size() > message.getConfigIndex()) {
+                        AugmentConfigurationApplyResult result = AugmentAPI.trySwapConfiguration(sender,
+                                configs.get(message.getConfigIndex()), item, false);
+                        if (result == AugmentConfigurationApplyResult.OK) {
+                            sender.getCooldownTracker().setCooldown(augmentable.getItem(), 40);
+                            sender.getEntityWorld().playSound(null, sender.getPosition(),
+                                    SoundsTC.tool, SoundCategory.PLAYERS, 1.0F, 1.0F);
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            // TODO get better fail sound
+            sender.getEntityWorld().playSound(null, sender.getPosition(),
+                    SoundEvents.ENTITY_VILLAGER_NO, SoundCategory.PLAYERS, 1.0F, 1.0F);
         }
     }
 
